@@ -49,6 +49,7 @@ namespace EveOPreview.Services
 
         private bool _ignoreViewEvents;
         private bool _isHoverEffectActive;
+        private bool _wasDragged;
 
         private int _refreshCycleCount;
         private int _hideThumbnailsDelay;
@@ -118,13 +119,22 @@ namespace EveOPreview.Services
 
         public void SetActive(KeyValuePair<IntPtr, IThumbnailView> newClient)
         {
-            this.GetActiveClient()?.ClearBorder();
+            try
+            {
+                this._windowManager.IsCurrentlySwitching = true;
 
-            this._windowManager.ActivateWindow(newClient.Key);
-            this.SwitchActiveClient(newClient.Key, newClient.Value.Title);
+                this.GetActiveClient()?.ClearBorder();
 
-            newClient.Value.SetHighlight();
-            newClient.Value.Refresh(true);
+                this._windowManager.ActivateWindow(newClient.Key);
+                this.SwitchActiveClient(newClient.Key, newClient.Value.Title);
+
+                newClient.Value.SetHighlight();
+                newClient.Value.Refresh(true);
+            }
+            finally
+            {
+                this._windowManager.IsCurrentlySwitching = false;
+            }
         }
 
         public void CycleNextClient(bool isForwards, SortedDictionary<int, string> cycleOrder)
@@ -343,6 +353,12 @@ namespace EveOPreview.Services
 
         private void RefreshThumbnails()
         {
+            // 切换客户端过程中跳过刷新，防止底层窗口闪烁
+            if (this._windowManager.IsCurrentlySwitching)
+            {
+                return;
+            }
+
             // TODO Split this method
             IntPtr foregroundWindowHandle = this._windowManager.GetForegroundWindowHandle();
 
@@ -583,6 +599,7 @@ namespace EveOPreview.Services
             }
 
             this._isHoverEffectActive = true;
+            this._wasDragged = false;
 
             IThumbnailView view = this._thumbnailViews[id];
 
@@ -612,11 +629,28 @@ namespace EveOPreview.Services
             view.SetOpacity(this._configuration.ThumbnailOpacity);
 
             this._isHoverEffectActive = false;
+
+            // 只有发生过拖拽，鼠标离开时才触发吸附；划过不管
+            if (this._wasDragged)
+            {
+                this._wasDragged = false;
+                this.SnapThumbnailView(view);
+
+                // 清除排队的通知，防止后续定时器干扰
+                lock (this._locationChangeNotificationSyncRoot)
+                {
+                    var notification = this._enqueuedLocationChangeNotification;
+                    notification.Handle = IntPtr.Zero;
+                    notification.Delay = -1;
+                }
+            }
         }
 
         private void ThumbnailActivated(IntPtr id)
         {
             IThumbnailView view = this._thumbnailViews[id];
+
+            this._windowManager.IsCurrentlySwitching = true;
 
             Task.Run(() =>
                 {
@@ -624,10 +658,17 @@ namespace EveOPreview.Services
                 })
                 .ContinueWith((task) =>
                 {
-                    // This code should be executed on UI thread
-                    this.SwitchActiveClient(view.Id, view.Title);
-                    this.UpdateClientLayouts();
-                    this.RefreshThumbnails();
+                    try
+                    {
+                        // This code should be executed on UI thread
+                        this.SwitchActiveClient(view.Id, view.Title);
+                        this.UpdateClientLayouts();
+                        this.RefreshThumbnails();
+                    }
+                    finally
+                    {
+                        this._windowManager.IsCurrentlySwitching = false;
+                    }
                 }, CancellationToken.None, TaskContinuationOptions.NotOnFaulted, TaskScheduler.FromCurrentSynchronizationContext());
         }
 
@@ -671,6 +712,8 @@ namespace EveOPreview.Services
             {
                 return;
             }
+
+            this._wasDragged = true;
 
             IThumbnailView view = this._thumbnailViews[id];
             view.Refresh(false);
@@ -744,73 +787,70 @@ namespace EveOPreview.Services
                 return;
             }
 
-            int width = this._configuration.ThumbnailSize.Width;
-            int height = this._configuration.ThumbnailSize.Height;
-            int gap = 2; // 你要求的 2 像素间隙
+            int gap = 1;
+            int thresholdX = 150;
+            int thresholdY = 150;
 
-            // 搜索吸附阈值（在该范围内触发自动对齐）
-            int thresholdX = 15;
-            int thresholdY = 15;
+            Point bestLocation = view.ThumbnailLocation;
+            int bestDistance = int.MaxValue;
 
             foreach (var entry in this._thumbnailViews)
             {
                 IThumbnailView testView = entry.Value;
+                if (view.Id == testView.Id) continue;
 
-                if (view.Id == testView.Id)
-                    continue;
+                int viewX   = view.ThumbnailLocation.X;
+                int viewY   = view.ThumbnailLocation.Y;
+                int testX   = testView.ThumbnailLocation.X;
+                int testY   = testView.ThumbnailLocation.Y;
+                int viewW   = view.ThumbnailSize.Width;
+                int viewH   = view.ThumbnailSize.Height;
+                int testW   = testView.ThumbnailSize.Width;
+                int testH   = testView.ThumbnailSize.Height;
 
-                int viewX = view.ThumbnailLocation.X;
-                int viewY = view.ThumbnailLocation.Y;
-                int testX = testView.ThumbnailLocation.X;
-                int testY = testView.ThumbnailLocation.Y;
-
-                Point newLocation = view.ThumbnailLocation;
-                bool snapped = false;
-
-                // 1. 水平对齐检查（如果垂直方向有重叠）
+                // 1. 水平对齐（左/右）
                 if (Math.Abs(viewY - testY) < thresholdY)
                 {
-                    // 在左侧：对齐到 testView 的左侧 - 宽度 - 间隙
-                    if (Math.Abs(viewX - (testX - width - gap)) < thresholdX)
+                    // 左侧：view.Right = test.Left - gap → viewX = testX - viewW - gap
+                    if (Math.Abs(viewX - (testX - viewW - gap)) < thresholdX)
                     {
-                        newLocation.X = testX - width - gap;
-                        newLocation.Y = testY;
-                        snapped = true;
+                        int nx = testX - viewW - gap;
+                        int dist = Math.Abs(viewX - nx) + Math.Abs(viewY - testY);
+                        if (dist < bestDistance) { bestDistance = dist; bestLocation = new Point(nx, testY); }
                     }
-                    // 在右侧：对齐到 testView 的右侧 + 间隙
-                    else if (Math.Abs(viewX - (testX + width + gap)) < thresholdX)
+                    // 右侧：view.Left = test.Right + gap → viewX = testX + testW + gap
+                    if (Math.Abs(viewX - (testX + testW + gap)) < thresholdX)
                     {
-                        newLocation.X = testX + width + gap;
-                        newLocation.Y = testY;
-                        snapped = true;
+                        int nx = testX + testW + gap;
+                        int dist = Math.Abs(viewX - nx) + Math.Abs(viewY - testY);
+                        if (dist < bestDistance) { bestDistance = dist; bestLocation = new Point(nx, testY); }
                     }
                 }
 
-                // 2. 垂直对齐检查（如果水平方向有重叠）
+                // 2. 垂直对齐（上/下）
                 if (Math.Abs(viewX - testX) < thresholdX)
                 {
-                    // 在上方：对齐到 testView 的上方 - 高度 - 间隙
-                    if (Math.Abs(viewY - (testY - height - gap)) < thresholdY)
+                    // 上方：view.Bottom = test.Top - gap → viewY = testY - viewH - gap
+                    if (Math.Abs(viewY - (testY - viewH - gap)) < thresholdY)
                     {
-                        newLocation.X = testX;
-                        newLocation.Y = testY - height - gap;
-                        snapped = true;
+                        int ny = testY - viewH - gap;
+                        int dist = Math.Abs(viewX - testX) + Math.Abs(viewY - ny);
+                        if (dist < bestDistance) { bestDistance = dist; bestLocation = new Point(testX, ny); }
                     }
-                    // 在下方：对齐到 testView 的下方 + 间隙
-                    else if (Math.Abs(viewY - (testY + height + gap)) < thresholdY)
+                    // 下方：view.Top = test.Bottom + gap → viewY = testY + testH + gap
+                    if (Math.Abs(viewY - (testY + testH + gap)) < thresholdY)
                     {
-                        newLocation.X = testX;
-                        newLocation.Y = testY + height + gap;
-                        snapped = true;
+                        int ny = testY + testH + gap;
+                        int dist = Math.Abs(viewX - testX) + Math.Abs(viewY - ny);
+                        if (dist < bestDistance) { bestDistance = dist; bestLocation = new Point(testX, ny); }
                     }
                 }
+            }
 
-                if (snapped)
-                {
-                    view.ThumbnailLocation = newLocation;
-                    this._configuration.SetThumbnailLocation(view.Title, this._activeClient.Title, view.ThumbnailLocation);
-                    break; // 找到一个吸附点后停止，避免冲突
-                }
+            if (bestDistance < int.MaxValue)
+            {
+                view.ThumbnailLocation = bestLocation;
+                this._configuration.SetThumbnailLocation(view.Title, this._activeClient.Title, view.ThumbnailLocation);
             }
         }
 

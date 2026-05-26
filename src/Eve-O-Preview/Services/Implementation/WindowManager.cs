@@ -85,22 +85,14 @@ namespace EveOPreview.Services.Implementation
         public void ActivateWindow(IntPtr handle)
         {
             TrySendGiveFocusViaFpsLimiterNamedPipe(handle);
-            
-            try
-            {
-                IsCurrentlySwitching = true;
-                MakeApiCallsToSetForegroundAndFocus(handle);
 
-                int style = User32NativeMethods.GetWindowLong(handle, InteropConstants.GWL_STYLE);
+            MakeApiCallsToSetForegroundAndFocus(handle);
 
-                if ((style & InteropConstants.WS_MINIMIZE) == InteropConstants.WS_MINIMIZE)
-                {
-                    User32NativeMethods.ShowWindowAsync(handle, InteropConstants.SW_RESTORE);
-                }
-            }
-            finally
+            int style = User32NativeMethods.GetWindowLong(handle, InteropConstants.GWL_STYLE);
+
+            if ((style & InteropConstants.WS_MINIMIZE) == InteropConstants.WS_MINIMIZE)
             {
-                IsCurrentlySwitching = false;
+                User32NativeMethods.ShowWindowAsync(handle, InteropConstants.SW_RESTORE);
             }
         }
 

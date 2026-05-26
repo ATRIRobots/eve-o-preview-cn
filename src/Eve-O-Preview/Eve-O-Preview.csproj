@@ -17,6 +17,7 @@
     <NuGetPackageRoot Condition=" '$(NuGetPackageRoot)' == '' ">$(UserProfile)\.nuget\packages\</NuGetPackageRoot>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
     <IsWebBootstrapper>false</IsWebBootstrapper>
+    <LangVersion>latest</LangVersion>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -285,24 +286,27 @@
     <PackageReference Include="Newtonsoft.Json">
       <Version>13.0.4</Version>
     </PackageReference>
+    <PackageReference Include="System.Resources.Extensions">
+      <Version>9.0.0</Version>
+    </PackageReference>
     <Reference Include="LightInject">
-      <HintPath>C:\Users\YU\.nuget\packages\lightinject\6.4.0\lib\net46\LightInject.dll</HintPath>
+      <HintPath>$(NuGetPackageRoot)lightinject\6.4.0\lib\net46\LightInject.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="MediatR">
-      <HintPath>C:\Users\YU\.nuget\packages\mediatr\9.0.0\lib\net461\MediatR.dll</HintPath>
+      <HintPath>$(NuGetPackageRoot)mediatr\9.0.0\lib\net461\MediatR.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Gma.System.MouseKeyHook">
-      <HintPath>C:\Users\YU\.nuget\packages\mousekeyhook\5.7.1\lib\net48\Gma.System.MouseKeyHook.dll</HintPath>
+      <HintPath>$(NuGetPackageRoot)mousekeyhook\5.7.1\lib\net48\Gma.System.MouseKeyHook.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>C:\Users\YU\.nuget\packages\newtonsoft.json\13.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <HintPath>$(NuGetPackageRoot)newtonsoft.json\13.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="System.Resources.Extensions, Version=5.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>$(NuGetPackageRoot)system.resources.extensions\5.0.0\lib\net461\System.Resources.Extensions.dll</HintPath>
+    <Reference Include="System.Resources.Extensions">
+      <HintPath>$(NuGetPackageRoot)system.resources.extensions\9.0.0\lib\net462\System.Resources.Extensions.dll</HintPath>
     </Reference>
     <Reference Include="System.ValueTuple">
       <HintPath>$(NuGetPackageRoot)System.ValueTuple\4.5.0\lib\net47\System.ValueTuple.dll</HintPath>
@@ -327,4 +331,6 @@
     </BootstrapperPackage>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(NuGetPackageRoot)costura.fody\3.3.2\build\Costura.Fody.props" Condition="Exists('$(NuGetPackageRoot)costura.fody\3.3.2\build\Costura.Fody.props')" />
+  <Import Project="$(NuGetPackageRoot)fody\4.0.2\build\Fody.targets" Condition="Exists('$(NuGetPackageRoot)fody\4.0.2\build\Fody.targets')" />
 </Project>
