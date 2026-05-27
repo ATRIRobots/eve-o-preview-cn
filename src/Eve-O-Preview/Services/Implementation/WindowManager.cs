@@ -12,6 +12,12 @@ namespace EveOPreview.Services.Implementation
     {
         #region Private constants
         private const int WINDOW_SIZE_THRESHOLD = 300;
+        private const int NO_ANIMATION = 0;
+        #endregion
+
+        #region Animation control
+        private int? _currentAnimationSetting = null;
+        private ANIMATIONINFO _animationParam = new ANIMATIONINFO();
         #endregion
         
         public WindowManager()
@@ -70,16 +76,8 @@ namespace EveOPreview.Services.Implementation
 
         public void MakeApiCallsToSetForegroundAndFocus(IntPtr handle)
         {
-            try
-            {
-                User32NativeMethods.SwitchToThisWindow(handle, false);
-                User32NativeMethods.SetFocus(handle);
-            }
-            catch
-            {
-                User32NativeMethods.SetForegroundWindow(handle);
-                User32NativeMethods.SetFocus(handle);
-            }
+            User32NativeMethods.SetForegroundWindow(handle);
+            User32NativeMethods.SetFocus(handle);
         }
 
         public void ActivateWindow(IntPtr handle)
@@ -92,7 +90,34 @@ namespace EveOPreview.Services.Implementation
 
             if ((style & InteropConstants.WS_MINIMIZE) == InteropConstants.WS_MINIMIZE)
             {
+                TurnOffAnimation();
                 User32NativeMethods.ShowWindowAsync(handle, InteropConstants.SW_RESTORE);
+                RestoreAnimation();
+            }
+        }
+
+        private void TurnOffAnimation()
+        {
+            var currentAnimationSetup = User32NativeMethods.SystemParametersInfo(User32NativeMethods.SPI_GETANIMATION, Marshal.SizeOf(typeof(ANIMATIONINFO)), ref this._animationParam, 0);
+            if (this._currentAnimationSetting == null)
+            {
+                this._currentAnimationSetting = this._animationParam.iMinAnimate;
+            }
+
+            if (currentAnimationSetup != NO_ANIMATION)
+            {
+                this._animationParam.iMinAnimate = NO_ANIMATION;
+                User32NativeMethods.SystemParametersInfo(User32NativeMethods.SPI_SETANIMATION, Marshal.SizeOf(typeof(ANIMATIONINFO)), ref this._animationParam, 0);
+            }
+        }
+
+        private void RestoreAnimation()
+        {
+            User32NativeMethods.SystemParametersInfo(User32NativeMethods.SPI_GETANIMATION, Marshal.SizeOf(typeof(ANIMATIONINFO)), ref this._animationParam, 0);
+            if (this._animationParam.iMinAnimate != (int)this._currentAnimationSetting)
+            {
+                this._animationParam.iMinAnimate = (int)this._currentAnimationSetting;
+                User32NativeMethods.SystemParametersInfo(User32NativeMethods.SPI_SETANIMATION, Marshal.SizeOf(typeof(ANIMATIONINFO)), ref this._animationParam, 0);
             }
         }
 

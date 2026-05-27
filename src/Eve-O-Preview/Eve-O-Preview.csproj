@@ -18,7 +18,7 @@
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <LangVersion>latest</LangVersion>
-    <PublishUrl>publish\</PublishUrl>
+    <PublishUrl>E:\Desktop\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
     <UpdateEnabled>false</UpdateEnabled>
@@ -161,6 +161,7 @@
     <Compile Include="Services\Interop\DWM_BLURBEHIND.cs" />
     <Compile Include="Services\Interop\DWM_THUMBNAIL_PROPERTIES.cs" />
     <Compile Include="Services\Interop\DWM_TNP_CONSTANTS.cs" />
+    <Compile Include="Services\Interop\ANIMATIONINFO.cs" />
     <Compile Include="Services\Interface\IWindowManager.cs" />
     <Compile Include="Services\Interop\Gdi32NativeMethods.cs" />
     <Compile Include="Services\Interop\KernelNativeMethods.cs" />

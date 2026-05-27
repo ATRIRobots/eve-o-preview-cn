@@ -24,15 +24,10 @@ namespace EveOPreview.View
 
         protected override void RefreshThumbnail(bool forceRefresh)
         {
-            // To prevent flickering the old broken thumbnail is removed AFTER the new shiny one is created
-            IDwmThumbnail obsoleteThumbnail = forceRefresh ? this._thumbnail : null;
-
-            if ((this._thumbnail == null) || forceRefresh)
+            if (this._thumbnail == null)
             {
                 this.RegisterThumbnail();
             }
-
-            obsoleteThumbnail?.Unregister();
         }
 
         protected override void ResizeThumbnail(int baseWidth, int baseHeight, int highlightWidthTop, int highlightWidthRight, int highlightWidthBottom, int highlightWidthLeft)

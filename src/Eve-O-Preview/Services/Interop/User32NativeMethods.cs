@@ -66,5 +66,12 @@ namespace EveOPreview.Services.Interop
         
         [DllImport("user32.dll")]
         public static extern void SwitchToThisWindow(IntPtr hWnd, bool fUnknown);
+
+        // Animation control
+        public const uint SPI_GETANIMATION = 0x0048;
+        public const uint SPI_SETANIMATION = 0x0049;
+
+        [DllImport("user32.dll")]
+        public static extern long SystemParametersInfo(uint uAction, int lpvParam, ref ANIMATIONINFO uParam, int fuWinIni);
     }
 }
