@@ -6,47 +6,45 @@ on:
   pull_request:
     branches: [ master, main ]
   release:
-    types: [ published ]   # 当发布正式版本时触发
+    types: [ published ]
 
 jobs:
   build:
-    runs-on: windows-latest   # 必须用 Windows，因为依赖 .NET Framework 和 WinForms
+    runs-on: windows-latest
 
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 安装 MSBuild（确保路径正确）
-        uses: microsoft/setup-msbuild@v1.1
+      - name: 安装 MSBuild
+        uses: microsoft/setup-msbuild@v1.3   # 升级到最新 v1.3
 
       - name: 安装 NuGet
-        uses: NuGet/setup-nuget@v1
+        uses: NuGet/setup-nuget@v2           # 升级到 v2
 
       - name: 还原 NuGet 包
         run: nuget restore EVE-O-Preview.sln
 
-      - name: 构建 Release 版本（Any CPU）
+      - name: 构建 Release（Any CPU）
         run: |
           msbuild EVE-O-Preview.sln /p:Configuration=Release /p:Platform="Any CPU" /verbosity:minimal
 
-      - name: 上传构建产物（供后续测试或下载）
-        uses: actions/upload-artifact@v3
+      - name: 上传构建产物（供下载或后续测试）
+        uses: actions/upload-artifact@v4     # 关键：升级到 v4
         with:
           name: EVE-O-Preview-Release
           path: EVE-O-Preview\bin\Release\
 
-      # （可选）如果是 release 事件，还可以自动打包并上传到 Release 附件
-      - name: 打包为 ZIP（用于 Release）
+      # 如果是 Release 事件，打包并上传到 Release 附件
+      - name: 打包为 ZIP
         if: github.event_name == 'release'
         run: |
           Compress-Archive -Path EVE-O-Preview\bin\Release\* -DestinationPath EVE-O-Preview.zip
-      - name: 上传到 Release
+
+      - name: 上传到 Release（使用官方推荐方式）
         if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v2   # 替代已弃用的 upload-release-asset
+        with:
+          files: EVE-O-Preview.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./EVE-O-Preview.zip
-          asset_name: EVE-O-Preview.zip
-          asset_content_type: application/zip
