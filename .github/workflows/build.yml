@@ -1,22 +1,48 @@
-name: .NET Build
+name: Build and Package
 
 on:
   push:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  # 你也可以手动触发
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: windows-latest  # 此项目依赖 Windows 窗体
+    # 使用 Windows 环境（因为项目依赖 Windows Forms）
+    runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 6.0.x  # 请根据项目实际目标框架调整
-    - name: Restore dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build -c Release --no-restore
+      # 1. 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. 安装 .NET SDK（指定版本，可按项目实际需要调整）
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.x'   # 若项目使用 .NET Framework 则可忽略此步
+
+      # 3. 还原 NuGet 依赖（指定 src 目录下的解决方案文件）
+      - name: Restore dependencies
+        run: dotnet restore src/EVE-O-Preview.sln
+
+      # 4. 构建 Release 版本
+      - name: Build
+        run: dotnet build src/EVE-O-Preview.sln -c Release --no-restore
+
+      # 5. （可选）发布成独立可执行文件
+      #    将发布输出打包到单独的目录，方便直接运行
+      - name: Publish (self-contained)
+        run: dotnet publish src/EVE-O-Preview.sln -c Release -o ./publish -r win-x64 --self-contained true
+        # 若项目是 .NET Framework 或不需要独立发布，可注释掉此行
+
+      # 6. 上传构建产物（供下载）
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: EVE-O-Preview-build
+          path: |
+            ./publish/**/*
+            !./publish/**/*.pdb   # 可选：排除调试符号文件
